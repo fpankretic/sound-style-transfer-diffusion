@@ -1,0 +1,11 @@
+name: sound-transfer
+channels:
+  - pytorch
+dependencies:
+  - python=3.12
+  - jupyter
+  - pytorch
+  - torchvision
+  - torchaudio
+  - cpuonly
+  - tqdm
