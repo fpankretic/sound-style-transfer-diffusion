@@ -7,7 +7,7 @@
 - [Dominik Jambrović](https://github.com/DomJamb)
 - [Velimir Kovačić](https://github.com/velimirkovacic)
 - [Luka Glavinić](https://github.com/LukaGlavinic)
-- [TODO](www.example.com)
+- [Fran Vučković](https://github.com/FranVuckovic)
 
 ### Description
 
