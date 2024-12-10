@@ -10,3 +10,4 @@ dependencies:
   - torchaudio
   - pytorch-cuda=12.4
   - tqdm
+  - diffusers

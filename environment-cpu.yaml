@@ -9,3 +9,4 @@ dependencies:
   - torchaudio
   - cpuonly
   - tqdm
+  - diffusers
