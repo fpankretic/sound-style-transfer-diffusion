@@ -47,7 +47,7 @@ class MusicTransfer(torch.nn.Module):
         self.text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
         self.scheduler: PNDMScheduler = PNDMScheduler().from_pretrained("google/ddpm-cat-256")
 
-    def forward(self, img: Image):
+    def inference(self, img: Image):
         torch_img = torch.tensor(img).to(self.device)
         latent_dist = self.vae.encode(torch_img).latent_dist
         init_latents = latent_dist.sample(generator=self.generator)
