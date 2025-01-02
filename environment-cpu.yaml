@@ -2,6 +2,7 @@ name: sound-transfer
 channels:
   - defaults
   - pytorch
+  - conda-forge
 dependencies:
   - python=3.12
   - jupyter
@@ -11,3 +12,4 @@ dependencies:
   - cpuonly
   - tqdm
   - diffusers
+  - transformers

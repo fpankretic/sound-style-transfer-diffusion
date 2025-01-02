@@ -3,6 +3,7 @@ channels:
   - defaults
   - pytorch
   - nvidia
+  - conda-forge
 dependencies:
   - python=3.12
   - jupyter
@@ -12,3 +13,4 @@ dependencies:
   - pytorch-cuda=12.4
   - tqdm
   - diffusers
+  - transformers
