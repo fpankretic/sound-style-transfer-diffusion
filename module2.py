@@ -23,9 +23,8 @@ class DiffusionModel(nn.Module):
         result = self.diffusion(
             sample=latents,
             timestep=timesteps,
-            encoder_hidden_states=text_embeddings,
-            return_dict=False
-        )[0]
+            encoder_hidden_states=text_embeddings
+        ).sample
 
         return result
 
@@ -49,9 +48,10 @@ def get_mnist_dataloader(batch_size=16):
 def precompute_text_embeddings(tokenizer, text_encoder, device):
     text_embeddings = {}
     for i in range(10):
-        prompt = f"A digit {i}"
-        tokens = tokenizer(prompt, padding=True, return_tensors="pt").to(device)
-        text_embeddings[i] = text_encoder(**tokens).last_hidden_state
+        with torch.no_grad():
+            prompt = f"A digit {i}"
+            tokens = tokenizer(prompt, padding=True, return_tensors="pt").to(device)
+            text_embeddings[i] = text_encoder(**tokens).last_hidden_state
     return text_embeddings
 
 
@@ -70,36 +70,40 @@ if __name__ == "__main__":
 
     # Optimizer and Diffusion Scheduler
     optimizer = torch.optim.AdamW(model.diffusion.parameters(), lr=1e-4)
-    scheduler = DDPMScheduler(num_train_timesteps=len(dataloader) * num_epochs, beta_schedule="squaredcos_cap_v2")
+    scheduler = DDPMScheduler(num_train_timesteps=1000, beta_schedule="squaredcos_cap_v2")
 
     loss_fn = MSELoss()
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch}/{num_epochs}")
+        model.diffusion.train()
         for step, (images, labels) in enumerate(dataloader):
             images, labels = images.to(device), labels
+
+            # VAE Encode
+            with torch.no_grad():
+                latents = model.vae.encode(images).latent_dist.sample() * 0.18215
+
+            noise = torch.randn_like(latents)
 
             label_embeddings = [text_embeddings[label.item()] for label in labels]
             label_embeddings = torch.stack(label_embeddings).squeeze(dim=1).to(device)
 
             # Sample random timesteps
-            timesteps = torch.randint(0, scheduler.config.num_train_timesteps, (images.size(0),),
-                                      device=device, dtype=torch.int64)
+            timesteps = torch.randint(0, scheduler.config.num_train_timesteps,
+                                      (images.size(0),), device=device, dtype=torch.int64)
 
-            # VAE Encode
-            with torch.no_grad():
-                latents = model.vae.encode(images).latent_dist.sample() * 0.18215
-                # Move out
-                noise = torch.randn_like(latents)
-                noisy_latents = scheduler.add_noise(latents, noise, timesteps)
+            noisy_latents = scheduler.add_noise(latents, noise, timesteps)
 
             # Predict noise
-            optimizer.zero_grad()
             pred_noise = model(noisy_latents, label_embeddings, timesteps)
             loss = loss_fn(pred_noise, noise)
+
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             # Logging
-            if step % 1 == 0:
+            if step % 10 == 0:
                 print(f"Epoch {epoch}, Step {step}, Loss: {loss.item()}")
+                torch.save(model.state_dict(), "data/diffusion_model.pth")
