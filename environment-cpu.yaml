@@ -1,5 +1,6 @@
 name: sound-transfer
 channels:
+  - defaults
   - pytorch
 dependencies:
   - python=3.12

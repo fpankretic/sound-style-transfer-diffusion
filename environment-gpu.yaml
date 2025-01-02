@@ -1,5 +1,6 @@
 name: sound-transfer
 channels:
+  - defaults
   - pytorch
   - nvidia
 dependencies:
