@@ -28,6 +28,11 @@ class DiffusionModel(nn.Module):
 
         return result
 
+    def encode_images(self, images):
+        with torch.no_grad():
+            latents = self.vae.encode(images).latent_dist.sample()
+        return latents
+
     def decode_latents(self, latents):
         with torch.no_grad():
             images = self.vae.decode(latents / 0.18215).sample
@@ -61,6 +66,7 @@ if __name__ == "__main__":
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
     text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
     model = DiffusionModel(text_dim=512).to(device)
+    model.load_state_dict(torch.load("data/diffusion_model.pth"))
 
     text_embeddings = precompute_text_embeddings(tokenizer, text_encoder, device)
 
@@ -106,4 +112,4 @@ if __name__ == "__main__":
             # Logging
             if step % 10 == 0:
                 print(f"Epoch {epoch}, Step {step}, Loss: {loss.item()}")
-                torch.save(model.state_dict(), "data/diffusion_model.pth")
+                #torch.save(model.state_dict(), "data/diffusion_model.pth")
