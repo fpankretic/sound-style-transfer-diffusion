@@ -200,7 +200,6 @@ class SoundStyleTransferModel(nn.Module):
 
         image_torch = self.preprocess_image(init_image).to(device=self.device, dtype=latents_dtype)
         init_latents = self.encode_images(image_torch)
-        print(init_latents.shape)
 
         # Partial diffusion
         timesteps, init_timestep, offset = self.original_timestep(alpha, denoising_a, denoising_b, inference_steps)
@@ -245,7 +244,7 @@ class SoundStyleTransferModel(nn.Module):
     def preprocess_image(image: Image.Image) -> torch.Tensor:
         w, h = image.size
         transformer = transforms.Compose([
-            transforms.Resize((w - w % 32, h - h % 32), interpolation=Image.LANCZOS),
+            transforms.Resize((h, w - w % 32), interpolation=Image.LANCZOS),
             transforms.ToTensor()
         ])
         image_torch = transformer(image).permute(0, 2, 1).unsqueeze(0)
@@ -287,3 +286,87 @@ class SoundStyleTransferModel(nn.Module):
             pil_images = [Image.fromarray(image) for image in images]
 
         return pil_images
+
+    @torch.inference_mode()
+    def pipe_paper(
+            self,
+            mel_spectrogram,
+            text_prompt,
+            inference_steps=50,
+            strength=0.65,
+            scale=4.0,
+            alpha=0.7,
+            tve=False
+    ):
+        print(self.device)
+        self.scheduler.set_timesteps(inference_steps)
+        self.vae.eval()
+        self.unet.eval()
+        self.text_transform.tve.eval()
+
+        image_torch = self.preprocess_image(mel_spectrogram).to(device=self.device)
+        print(image_torch.shape)
+
+        init_latents = self.encode_images(image_torch)
+
+        offset = self.scheduler.config.get("steps_offset", 0)
+        init_timestep = int(inference_steps * strength) + offset
+        init_timestep = min(init_timestep, inference_steps)
+
+        t = self.scheduler.timesteps[-init_timestep]
+        t = torch.tensor([t], device=self.device)
+        noise = torch.randn(init_latents.shape, device=self.device)
+
+        # Partial diffusion
+        # latents = self.scheduler.add_noise(init_latents, noise, t)
+        # with torch.amp.autocast("cuda"):
+        #     text_embed, _ = self.get_text_embed_test(text_prompt, 0, t, tve=False)
+        #     pred_noise = self.unet(latents, t, text_embed).sample
+        # noise = self.slerp(alpha, noise, pred_noise)
+
+        latents = self.scheduler.add_noise(init_latents, noise, t)
+
+        t_start = max(inference_steps - init_timestep + offset, 0)
+        timesteps = self.scheduler.timesteps[t_start:].to(self.device)
+        for t in tqdm(timesteps, total=len(timesteps)):
+            t = torch.tensor([t], device=self.device)
+            with torch.amp.autocast("cuda"):
+                latent_input = torch.cat([latents, latents]) if scale > 1 else latents
+                latent_input = self.scheduler.scale_model_input(latent_input, t)
+
+                text_embed, _ = self.get_text_embed_test(text_prompt, scale, t, tve=tve)
+                pred_noise = self.unet(latent_input, t, text_embed).sample
+
+                if scale > 1:
+                    pred_noise_uncond, pred_noise_text = pred_noise.chunk(2)
+                    pred_noise = pred_noise_uncond + scale * (pred_noise_text - pred_noise_uncond)
+
+                latents = self.scheduler.step(pred_noise, t, latents).prev_sample
+
+        decoded_image = self.decode_latents(latents)
+        image = (decoded_image / 2 + 0.5).clamp(0, 1).cpu().permute(0, 3, 2, 1).squeeze().numpy()
+        image = self.numpy_to_pil(image)[0]
+
+        return image
+
+    def get_text_embed_test(self, text_prompt, guidance_scale, t, tve=False):
+        text_embed, latents_dtype = self.get_text_embed_test_2(text_prompt, t)
+
+        bs_embed, seq_len, _ = text_embed.shape
+        text_embed = text_embed.repeat(1, 1, 1)
+        text_embed = text_embed.view(bs_embed, seq_len, -1)
+
+        # Negative prompt for guidance
+        if guidance_scale > 1:
+            uncond_embed = self.text_transform.embed_text("")
+            uncond_embed = uncond_embed.repeat_interleave(bs_embed, dim=0)
+            uncond_embed = uncond_embed.repeat(1, 1, 1)
+
+            text_embed = torch.cat([uncond_embed, text_embed])
+        return text_embed, latents_dtype
+
+    def get_text_embed_test_2(self, text_prompt, t, tve=False):
+        text_embed = self.text_transform.embed_text(text_prompt)
+        if tve:
+            text_embed = self.text_transform.tve(t, text_embed)
+        return text_embed, text_embed.dtype

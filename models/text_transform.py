@@ -1,32 +1,67 @@
 import torch
+import math
 from torch import nn
 from transformers import CLIPTokenizer, CLIPTextModel
 
 
+def timestep_embedding(timesteps, dim, max_period=10000):
+    half = dim // 2
+    freqs = torch.exp(
+        -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
+    ).to(device=timesteps.device)
+    args = timesteps[:, None].float() * freqs[None]  # 160
+    embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)  # 320
+    if dim % 2:
+        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+
+    return embedding
+
+
 class TVE(nn.Module):
-    def __init__(self, embed_dim=768, num_att_layers=4, seq_len=77):
+    def __init__(self, token_dim=768, num_att_layers=8):
         super(TVE, self).__init__()
-        self.embed = nn.Embedding(1000, embed_dim)
-        self.linear = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim),
-            nn.ReLU(),
-            nn.Linear(embed_dim, embed_dim),
-            nn.ReLU(),
-            nn.Linear(embed_dim, embed_dim)
+
+        time_embed_dim = token_dim * 4
+
+        #self.embed = nn.Embedding(1000, time_embed_dim)
+        self.timestep_proj = nn.Sequential(
+            nn.Linear(token_dim, time_embed_dim),
+            nn.SiLU(),
+            nn.Linear(time_embed_dim, time_embed_dim),
+            nn.SiLU(),
+            nn.Linear(time_embed_dim, token_dim)
         )
-        self.att = nn.MultiheadAttention(embed_dim, num_att_layers)
-        self.cross_att = nn.MultiheadAttention(embed_dim, num_att_layers)
-        self.ff = nn.Linear(embed_dim, embed_dim)
-        self.batch_norm = nn.BatchNorm1d(seq_len)
+
+        self.att = nn.MultiheadAttention(token_dim, num_att_layers, dropout=0.2)
+        self.cross_att = nn.MultiheadAttention(token_dim, num_att_layers, dropout=0.2)
+        self.net = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(token_dim, token_dim)
+        )
+
+        self.norm = nn.LayerNorm(token_dim)
+
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+                nn.init.constant_(m.bias, 0)
+
 
     def forward(self, timestep, text_embed):
-        t_e = self.embed(timestep)
-        t_e = self.linear(t_e)
-        v_0 = t_e + text_embed.to(t_e.dtype)
-        v_1, _ = self.att(v_0, v_0, v_0)
-        v_i, _ = self.cross_att(v_1, v_0, v_0)
-        v_i = self.ff(v_i)
-        v_i = self.batch_norm(v_i)
+        # t_e = self.embed(timestep)
+        t_e = timestep_embedding(timestep, text_embed.shape[-1])
+        t_e = self.timestep_proj(t_e)
+
+        v_0 = t_e + text_embed
+        v_0 = self.norm(v_0)
+
+        v_i = self.att(v_0, v_0, v_0)[0]
+        v_i = self.cross_att(v_i, v_0, v_0)[0]
+        v_i = self.net(v_i)
+
         return v_i
 
 
