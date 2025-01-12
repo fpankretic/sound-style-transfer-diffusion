@@ -23,7 +23,6 @@ class TVE(nn.Module):
 
         time_embed_dim = token_dim * 4
 
-        #self.embed = nn.Embedding(1000, time_embed_dim)
         self.timestep_proj = nn.Sequential(
             nn.Linear(token_dim, time_embed_dim),
             nn.SiLU(),
@@ -39,6 +38,7 @@ class TVE(nn.Module):
             nn.Linear(token_dim, token_dim)
         )
 
+        # TODO: Try without
         self.norm = nn.LayerNorm(token_dim)
 
         self.init_weights()
