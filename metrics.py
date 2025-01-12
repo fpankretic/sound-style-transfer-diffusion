@@ -57,12 +57,12 @@ def style_fit(style_file_list, stylized_content_file_list):
 
 if __name__ == '__main__':
     # Content preservation test
-    accordion_list_1 = ['./audios/timbre/accordion/accordion1.wav', './audios/timbre/accordion/accordion2.wav', './audios/timbre/accordion/accordion3.wav']
-    accordion_list_2 = ['./audios/timbre/accordion/accordion4.wav', './audios/timbre/accordion/accordion5.wav', './audios/timbre/accordion/accordion6.wav']
+    content = ['./audios/comparison/hiphop1.wav']
+    stylized_content = ['./audios/comparison/out_sample_1.wav', './audios/comparison/out_sample_2.wav']
 
-    print(content_preservation(accordion_list_1, accordion_list_2))
+    print(f'Content preservation: {content_preservation(content, stylized_content)}')
 
     # Style fit test
-    accordion_style = ['./audios/timbre/accordion/accordion7.wav']
+    style = ['./audios/comparison/cornet1.wav']
 
-    print(style_fit(accordion_style, accordion_list_1))
+    print(f'Style fit: {style_fit(style, stylized_content)}')
