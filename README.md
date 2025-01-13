@@ -38,5 +38,3 @@ To download the dataset, run the following command from root directory:
 ```bash
 python dataset.py
 ```
-
-### Sound-Image conversion
