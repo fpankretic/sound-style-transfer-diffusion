@@ -95,16 +95,15 @@ class SoundStyleTransferModel(nn.Module):
         ).sample
         return result
 
-    def get_text_embeddings(self, alpha, text_prompt_start, text_prompt_end, use_tve=False, t=None):
-        embed_start = self.text_transform.embed_text(text_prompt_start)
-        if use_tve and t is not None:
-            embed_start = self.text_transform.tve(t, embed_start)
+    def get_extra_kwargs(self, eta):
+        accepts_eta = "eta" in set(inspect.signature(self.scheduler.step).parameters.keys())
+        extra_step_kwargs = {}
+        if accepts_eta:
+            extra_step_kwargs["eta"] = eta
+        return extra_step_kwargs
 
-        embed_end = self.text_transform.embed_text(text_prompt_end)
-        text_embed = embed_start * (1.0 - alpha) + embed_end * alpha
-        return text_embed, embed_start.dtype
-
-    def original_timestep(self, alpha, denoising_a, denoising_b, inference_steps):
+    # =========================================== Riffusion specific methods ===========================================
+    def original_timestep_riffusion(self, alpha, denoising_a, denoising_b, inference_steps):
         strength = (1 - alpha) * denoising_a + alpha * denoising_b
 
         offset = self.scheduler.config.get("steps_offset", 0)
@@ -116,44 +115,33 @@ class SoundStyleTransferModel(nn.Module):
 
         return timesteps, init_timestep, offset
 
-    def partial_diffusion(self, latents, alpha, timesteps, dtype):
+    def noise_image_riffusion(self, latents, alpha, timesteps, dtype):
         noise_a = torch.randn(latents.shape, device=self.device, dtype=dtype)
         noise_b = torch.randn(latents.shape, device=self.device, dtype=dtype)
         noise = self.slerp(alpha, noise_a, noise_b)
         latents = self.scheduler.add_noise(latents, noise, timesteps)
         return latents
 
-    def get_extra_kwargs(self, eta):
-        accepts_eta = "eta" in set(inspect.signature(self.scheduler.step).parameters.keys())
-        extra_step_kwargs = {}
-        if accepts_eta:
-            extra_step_kwargs["eta"] = eta
-        return extra_step_kwargs
+    def get_text_embeddings_riffusion(self, alpha, text_prompt_start, text_prompt_end):
+        embed_start = self.text_transform.embed_text(text_prompt_start)
+        embed_end = self.text_transform.embed_text(text_prompt_end)
+        text_embed = embed_start * (1.0 - alpha) + embed_end * alpha
+        return text_embed, embed_start.dtype
 
-    def get_text_embeddings_full(
+    def get_conditional_text_embeddings_riffusion(
             self,
             alpha,
             text_prompt_start,
             text_prompt_end,
             num_images_per_prompt,
-            guidance_scale,
-            use_tve=False,
-            t=None
+            guidance_scale
     ):
-        text_embed, latents_dtype = self.get_text_embeddings(
-            alpha,
-            text_prompt_start,
-            text_prompt_end,
-            use_tve=use_tve,
-            t=t
-        )
+        text_embed, latents_dtype = self.get_text_embeddings_riffusion(alpha, text_prompt_start, text_prompt_end)
 
-        # Duplicate text embeddingsbs_embed, seq_len, _ = text_embeddings.shape
         bs_embed, seq_len, _ = text_embed.shape
         text_embed = text_embed.repeat(1, num_images_per_prompt, 1)
         text_embed = text_embed.view(bs_embed * num_images_per_prompt, seq_len, -1)
 
-        # Negative prompt for guidance
         if guidance_scale > 1:
             uncond_tokens = [""]
             uncond_input = self.text_transform.tokenizer(
@@ -172,12 +160,11 @@ class SoundStyleTransferModel(nn.Module):
         return text_embed, latents_dtype
 
     @torch.inference_mode()
-    def transfer_style(
+    def transfer_style_riffusion(
             self,
             init_image,
             text_prompt_start,
             text_prompt_end,
-            use_tve=False,
             inference_steps=50,
             denoising_a=0.75,
             denoising_b=0.75,
@@ -190,7 +177,7 @@ class SoundStyleTransferModel(nn.Module):
         self.scheduler.set_timesteps(inference_steps)
         guidance_scale = guidance_a * (1.0 - alpha) + guidance_b * alpha
 
-        text_embed, latents_dtype = self.get_text_embeddings_full(
+        text_embed, latents_dtype = self.get_conditional_text_embeddings_riffusion(
             alpha,
             text_prompt_start,
             text_prompt_end,
@@ -202,8 +189,9 @@ class SoundStyleTransferModel(nn.Module):
         init_latents = self.encode_images(image_torch)
 
         # Partial diffusion
-        timesteps, init_timestep, offset = self.original_timestep(alpha, denoising_a, denoising_b, inference_steps)
-        init_latents = self.partial_diffusion(init_latents, alpha, timesteps, dtype=latents_dtype)
+        timesteps, init_timestep, offset = self.original_timestep_riffusion(alpha, denoising_a, denoising_b,
+                                                                            inference_steps)
+        init_latents = self.noise_image_riffusion(init_latents, alpha, timesteps, dtype=latents_dtype)
 
         extra_step_kwargs = self.get_extra_kwargs(eta)
         t_start = max(inference_steps - init_timestep + offset, 0)
@@ -214,17 +202,6 @@ class SoundStyleTransferModel(nn.Module):
             with torch.amp.autocast("cuda"):
                 latent_input = torch.cat([latents, latents]) if guidance_scale > 1 else latents
                 latent_input = self.scheduler.scale_model_input(latent_input, t)
-
-                if use_tve:
-                    text_embed, _ = self.get_text_embeddings_full(
-                        alpha,
-                        text_prompt_start,
-                        text_prompt_end,
-                        num_images_per_prompt,
-                        guidance_scale,
-                        use_tve=True,
-                        t=t
-                    )
 
                 pred_noise = self.unet(latent_input, t, text_embed).sample
 
@@ -239,6 +216,8 @@ class SoundStyleTransferModel(nn.Module):
         image = self.numpy_to_pil(image)[0]
 
         return image
+
+    # =========================================== Riffusion specific methods ===========================================
 
     @staticmethod
     def preprocess_image(image: Image.Image) -> torch.Tensor:
@@ -288,25 +267,22 @@ class SoundStyleTransferModel(nn.Module):
         return pil_images
 
     @torch.inference_mode()
-    def pipe_paper(
+    def transfer_style(
             self,
             mel_spectrogram,
             text_prompt,
             inference_steps=50,
             strength=0.65,
             scale=4.0,
-            alpha=0.7,
-            tve=False
+            tve=False,
+            bias_reduction=False
     ):
-        print(self.device)
         self.scheduler.set_timesteps(inference_steps)
         self.vae.eval()
         self.unet.eval()
         self.text_transform.tve.eval()
 
         image_torch = self.preprocess_image(mel_spectrogram).to(device=self.device)
-        print(image_torch.shape)
-
         init_latents = self.encode_images(image_torch)
 
         offset = self.scheduler.config.get("steps_offset", 0)
@@ -317,14 +293,10 @@ class SoundStyleTransferModel(nn.Module):
         t = torch.tensor([t], device=self.device)
         noise = torch.randn(init_latents.shape, device=self.device)
 
-        # Partial diffusion
-        # latents = self.scheduler.add_noise(init_latents, noise, t)
-        # with torch.amp.autocast("cuda"):
-        #     text_embed, _ = self.get_text_embed_test(text_prompt, 0, t, tve=False)
-        #     pred_noise = self.unet(latents, t, text_embed).sample
-        # noise = self.slerp(alpha, noise, pred_noise)
-
-        latents = self.scheduler.add_noise(init_latents, noise, t)
+        if bias_reduction:
+            latents = self.partial_diffusion(init_latents, noise, text_prompt, t, tve)
+        else:
+            latents = self.scheduler.add_noise(init_latents, noise, t)
 
         t_start = max(inference_steps - init_timestep + offset, 0)
         timesteps = self.scheduler.timesteps[t_start:].to(self.device)
@@ -334,7 +306,7 @@ class SoundStyleTransferModel(nn.Module):
                 latent_input = torch.cat([latents, latents]) if scale > 1 else latents
                 latent_input = self.scheduler.scale_model_input(latent_input, t)
 
-                text_embed, _ = self.get_text_embed_test(text_prompt, scale, t, tve=tve)
+                text_embed, _ = self.get_text_embed_guided(text_prompt, scale, t, tve=tve)
                 pred_noise = self.unet(latent_input, t, text_embed).sample
 
                 if scale > 1:
@@ -349,8 +321,16 @@ class SoundStyleTransferModel(nn.Module):
 
         return image
 
-    def get_text_embed_test(self, text_prompt, guidance_scale, t, tve=False):
-        text_embed, latents_dtype = self.get_text_embed_test_2(text_prompt, t)
+    def partial_diffusion(self, init_latents, noise, text_prompt, t, tve):
+        latents = self.scheduler.add_noise(init_latents, noise, t)
+        with torch.amp.autocast("cuda"):
+            text_embed, _ = self.get_text_embed(text_prompt, t, tve=tve)
+            pred_noise = self.unet(latents, t, text_embed).sample
+
+        return self.scheduler.add_noise(init_latents, pred_noise, t)
+
+    def get_text_embed_guided(self, text_prompt, guidance_scale, t, tve=False):
+        text_embed, latents_dtype = self.get_text_embed(text_prompt, t, tve=tve)
 
         bs_embed, seq_len, _ = text_embed.shape
         text_embed = text_embed.repeat(1, 1, 1)
@@ -358,14 +338,14 @@ class SoundStyleTransferModel(nn.Module):
 
         # Negative prompt for guidance
         if guidance_scale > 1:
-            uncond_embed = self.text_transform.embed_text("")
+            uncond_embed, _ = self.get_text_embed("", t, tve=tve)
             uncond_embed = uncond_embed.repeat_interleave(bs_embed, dim=0)
             uncond_embed = uncond_embed.repeat(1, 1, 1)
 
             text_embed = torch.cat([uncond_embed, text_embed])
         return text_embed, latents_dtype
 
-    def get_text_embed_test_2(self, text_prompt, t, tve=False):
+    def get_text_embed(self, text_prompt, t, tve=False):
         text_embed = self.text_transform.embed_text(text_prompt)
         if tve:
             text_embed = self.text_transform.tve(t, text_embed)

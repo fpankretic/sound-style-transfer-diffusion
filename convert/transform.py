@@ -1,21 +1,17 @@
-import os
+import sys
 import wave
-from pathlib import Path
 
 import pydub
 from PIL import Image
-from spectogram_image_converter import SpectrogramImageConverter
-from spectrogram_params import SpectrogramParams
+from convert.spectogram_image_converter import SpectrogramImageConverter
+from convert.spectrogram_params import SpectrogramParams
 
 FRAME_RATE = 44100
-AUDIOS = Path(__file__).parent / 'audios'
-SPECTROGRAMS = Path(__file__).parent / 'spectrograms'
-
 
 class Transform:
-    def to_spectrogram(self, path_to_audio: str) -> Image.Image:
+    def to_spectrogram(self, path_to_audio: str, to_path: str) -> Image.Image:
         """The method converts audio file to a spectrogram, if the audio has a sampling (frame) rate
-        different than 44100 which is used in the other methods the audio is resampled
+        different from 44100 which is used in the other methods the audio is resampled
         so that it matches the needed value.
 
         Args:
@@ -46,13 +42,13 @@ class Transform:
 
             spectrogram = converter.spectrogram_image_from_audio(audio_segment)
 
-            spectrogram.save(os.path.join(SPECTROGRAMS, Path(path_to_audio).stem + '.jpg'))
+            spectrogram.save(to_path)
             # spectrogram.show()
 
             return spectrogram
 
 
-    def to_audio(self, path_to_spectrogram: str) -> pydub.AudioSegment:
+    def to_audio(self, path_to_spectrogram: str, to_path: str) -> pydub.AudioSegment:
         """The method converts an image of a spectrogram to an audio wav file.
 
         Args:
@@ -71,13 +67,23 @@ class Transform:
 
         spectogram = Image.open(path_to_spectrogram)
         audio = converter.audio_from_spectrogram_image(spectogram)
-        audio.export(os.path.join(AUDIOS, Path(path_to_spectrogram).stem + '.wav'), format="wav")
+        audio.export(to_path, format=to_path.split('.')[-1])
 
         return audio
 
 
 # testing
 if __name__ == '__main__':
+    args = sys.argv
+    operation = args[1]
+    from_path = args[2]
+    to_path = args[3]
+
     transformer = Transform()
-    # transformer.to_spectrogram(os.path.join(AUDIOS, 'hiphop1.wav'))
-    # transformer.to_audio(os.path.join(SPECTROGRAMS, 'clip.jpg'))
+    if operation == 'image2audio':
+        transformer.to_audio(from_path, to_path)
+    elif operation == 'audio2image':
+        transformer.to_spectrogram(from_path, to_path)
+    else:
+        raise ValueError("Invalid operation")
+

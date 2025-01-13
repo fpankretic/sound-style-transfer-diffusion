@@ -14,3 +14,7 @@ dependencies:
   - tqdm
   - diffusers
   - transformers
+  - pydub
+  - scikit-learn
+  - pip:
+    - laion-clap

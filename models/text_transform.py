@@ -22,7 +22,6 @@ class TVE(nn.Module):
         super(TVE, self).__init__()
 
         time_embed_dim = token_dim * 4
-
         self.timestep_proj = nn.Sequential(
             nn.Linear(token_dim, time_embed_dim),
             nn.SiLU(),
@@ -30,6 +29,7 @@ class TVE(nn.Module):
             nn.SiLU(),
             nn.Linear(time_embed_dim, token_dim)
         )
+        self.norm = nn.LayerNorm(token_dim)
 
         self.att = nn.MultiheadAttention(token_dim, num_att_layers, dropout=0.2)
         self.cross_att = nn.MultiheadAttention(token_dim, num_att_layers, dropout=0.2)
@@ -37,9 +37,6 @@ class TVE(nn.Module):
             nn.Dropout(0.2),
             nn.Linear(token_dim, token_dim)
         )
-
-        # TODO: Try without
-        self.norm = nn.LayerNorm(token_dim)
 
         self.init_weights()
 
@@ -51,15 +48,14 @@ class TVE(nn.Module):
 
 
     def forward(self, timestep, text_embed):
-        # t_e = self.embed(timestep)
         t_e = timestep_embedding(timestep, text_embed.shape[-1])
         t_e = self.timestep_proj(t_e)
 
         v_0 = t_e + text_embed
         v_0 = self.norm(v_0)
 
-        v_i = self.att(v_0, v_0, v_0)[0]
-        v_i = self.cross_att(v_i, v_0, v_0)[0]
+        v_1 = self.att(v_0, v_0, v_0)[0]
+        v_i = self.cross_att(v_1, v_0, v_0)[0]
         v_i = self.net(v_i)
 
         return v_i
