@@ -11,6 +11,8 @@ def content_preservation(content_file_list, stylized_content_file_list):
 
     Returns:
         content_preservation (float): content preservation metric calculated for input file lists
+        best_index (int): index of pair with best content preservation
+        best_val (float): best content preservation
     """
     # Load model
     model = laion_clap.CLAP_Module(enable_fusion=False)
@@ -26,8 +28,12 @@ def content_preservation(content_file_list, stylized_content_file_list):
 
     # Calculate average content preservation
     avg_content_preservation = torch.mean(content_preservation).item()
+
+    # Find index and value of pair with best content preservation
+    best_index = torch.argmax(content_preservation).item()
+    best_val = content_preservation[best_index].item()
     
-    return avg_content_preservation
+    return avg_content_preservation, best_index, best_val
 
 def style_fit(style_file_list, stylized_content_file_list):
     """
@@ -37,6 +43,8 @@ def style_fit(style_file_list, stylized_content_file_list):
 
     Returns:
         style_fit (float): style fit metric calculated for input file list
+        best_index (int): index of pair with best style fit
+        best_val (float): best style fit
     """
     # Load model
     model = laion_clap.CLAP_Module(enable_fusion=False)
@@ -52,8 +60,12 @@ def style_fit(style_file_list, stylized_content_file_list):
 
     # Calculate average content preservation
     avg_style_fit = torch.mean(style_fit).item()
+
+    # Find index and value of pair with best style fit
+    best_index = torch.argmax(style_fit).item()
+    best_val = style_fit[best_index].item()
     
-    return avg_style_fit
+    return avg_style_fit, best_index, best_val
 
 if __name__ == '__main__':
     # Content preservation test
