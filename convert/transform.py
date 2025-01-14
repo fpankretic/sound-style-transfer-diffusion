@@ -9,13 +9,14 @@ from convert.spectrogram_params import SpectrogramParams
 FRAME_RATE = 44100
 
 class Transform:
-    def to_spectrogram(self, path_to_audio: str, to_path: str) -> Image.Image:
+    def to_spectrogram(self, path_to_audio: str, to_path: str, verbose: bool = True) -> Image.Image:
         """The method converts audio file to a spectrogram, if the audio has a sampling (frame) rate
         different from 44100 which is used in the other methods the audio is resampled
         so that it matches the needed value.
 
         Args:
             path_to_audio (str): path to an audio file in wav format
+            verbose (bool, optional): verbosity setting
 
         Returns:
             Image.Image: Image object of the corresponding spectrogram
@@ -34,7 +35,9 @@ class Transform:
         # checking the frame rate
         with wave.open(path_to_audio, 'rb') as wav_file:
             sample_rate = wav_file.getframerate()
-            print(f"Sample rate: {sample_rate} Hz")
+            
+            if verbose:
+                print(f"Sample rate: {sample_rate} Hz")
 
             # change the frame rate if needed
             if sample_rate != FRAME_RATE:
