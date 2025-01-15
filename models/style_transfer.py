@@ -298,7 +298,7 @@ class SoundStyleTransferModel(nn.Module):
         else:
             latents = self.scheduler.add_noise(init_latents, noise, t)
 
-        t_start = max(inference_steps - init_timestep + offset, 0)
+        t_start = max(inference_steps - init_timestep + offset + 1, 0)
         timesteps = self.scheduler.timesteps[t_start:].to(self.device)
         for t in tqdm(timesteps, total=len(timesteps)):
             t = torch.tensor([t], device=self.device)

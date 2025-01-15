@@ -4,7 +4,7 @@ channels:
   - pytorch
   - conda-forge
 dependencies:
-  - python=3.12
+  - python=3.11
   - jupyter
   - pytorch
   - torchvision
@@ -15,5 +15,7 @@ dependencies:
   - transformers
   - pydub
   - scikit-learn
+  - matplotlib
+  - pip
   - pip:
     - laion-clap

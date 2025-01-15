@@ -3,6 +3,7 @@ import torch.nn.functional as F
 
 import laion_clap
 
+@torch.no_grad()
 def content_preservation(content_file_list, stylized_content_file_list):
     """
     Parameters:
@@ -35,6 +36,7 @@ def content_preservation(content_file_list, stylized_content_file_list):
     
     return avg_content_preservation, best_index, best_val
 
+@torch.no_grad()
 def style_fit(style_file_list, stylized_content_file_list):
     """
     Parameters:
