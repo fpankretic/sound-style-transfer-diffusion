@@ -29,12 +29,11 @@ class TVE(nn.Module):
             nn.SiLU(),
             nn.Linear(time_embed_dim, token_dim)
         )
-        self.norm = nn.LayerNorm(token_dim)
 
-        self.att = nn.MultiheadAttention(token_dim, num_att_layers, dropout=0.2)
-        self.cross_att = nn.MultiheadAttention(token_dim, num_att_layers, dropout=0.2)
+        self.att = nn.MultiheadAttention(token_dim, num_att_layers, dropout=0.05)
+        self.cross_att = nn.MultiheadAttention(token_dim, num_att_layers, dropout=0.05)
         self.net = nn.Sequential(
-            nn.Dropout(0.2),
+            nn.Dropout(0.05),
             nn.Linear(token_dim, token_dim)
         )
 
@@ -52,7 +51,6 @@ class TVE(nn.Module):
         t_e = self.timestep_proj(t_e)
 
         v_0 = t_e + text_embed
-        v_0 = self.norm(v_0)
 
         v_1 = self.att(v_0, v_0, v_0)[0]
         v_i = self.cross_att(v_1, v_0, v_0)[0]
