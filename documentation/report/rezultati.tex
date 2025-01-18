@@ -1,0 +1,28 @@
+Korišteni skup podataka sadrži 179 zapisa sadržaja iz 13 različitih kategorija, kao i 74 zapisa stila podijeljenih na 18 različitih stilova. Kako bismo mogli prenijeti neki željeni stil, potrebno je prvo učiti model na zvučnim zapisima tog stila. Odabrali smo 3 različita stila: \textit{bird}, \textit{accordion} i \textit{chime}. Za svaki od odabranih stilova naučen je jedan model.
+
+Tijekom učenja modela, koristili smo optimizator Adam s početnom stopom učenja $1\cdot 10^{-4}$, hiperparametrom $\beta_1$ iznosa $0.9$ te hiperparametrom $\beta_2$ iznosa $0.999$. Svaki model učili smo 3000 epoha s veličinom mini-grupe postavljenom na 1. Učenje modela je trajalo između 30 i 120 minuta na grafičkoj kartici NVIDIA GeForce RTX 3060, ovisno o broju odabranih isječaka stila.
+
+Nakon učenja modela, isti koristimo za prijenos naučenog stila na odabrane zvučne zapise. Za prijenos stila trebamo odabrati nekoliko hiperparametara: broj koraka prijenosa, \textit{scale} i \textit{strength}. Broj koraka prijenosa obično fiksiramo na iznos 50, dok hiperparametre \textit{scale} i \textit{strength} mijenjamo ovisno o željenom odnosu očuvanje sadržaja i podudaranja stila. Velik iznos hiperparametra \textit{scale} usmjerava predviđanje šuma strože prema zadanom stilu, dok manji iznos stavlja veći naglasak na kreativnost. Velik iznos hiperparametra \textit{strength} prioritizira prijenos stila nad očuvanjem sadržaja.
+
+Evaluaciju rezultata provodimo koristeći već spomenute objektivne mjere dobrote: očuvanje sadržaja (engl. \textit{contentent preservation} - CP) i podudaranje stila (engl. \textit{style fit} - SF). Nakon prijenosa zadanog stila na sve dostupne zvučne zapise sadržaja, izračunati su iznosi obje mjere za svaki stilizirani zvučni zapis. Konačno, kako bismo dobili iznos mjera za cijeli skup zapisa sadržaja, dobivene rezultate uprosječujemo.
+
+Različiti odabrani stilovi imaju različit broj dostupnih zvučnih zapisa stila. Ako model učimo na većem broju zvučnih zapisa, prijenos stila će, općenito govoreći, biti uspješniji. Na primjer, uspješniji je prijenos stila \textit{accordion} (15 zvučnih zapisa) u usporedbi s prijenosom stila \textit{bird} (1 zvučni zapis). Dodatno, pojedini stilovi zahtijevaju pažljivo ugađanje iznosa hiperparametara \textit{scale} i \textit{strength}. U slučaju stilova s manje dostupnih zvučnih zapisa, općenito je preporučeno koristiti manji iznos hiperparametara, posebice iznos hiperparametra \textit{strength}.
+
+\begin{table}[H]
+    \centering
+    \caption{Usporedba mjera dobrote za različite stilove i iznose hiperparametara}
+    \label{table:usporedne_mjere}
+    \begin{tabular}{ |l|c|c|c|c| }
+        \hline
+        Stil & \textit{Scale} & \textit{Strength} & CP & SF \\
+        \hline 
+        \textit{Accordion} & 4.5 & 0.6 & 0.40 & \textbf{0.49} \\
+        \textit{Bird} & 3.5 & 0.45 & 0.35 & 0.40 \\
+        \textit{Chime} & 3.5 & 0.45 & \textbf{0.49} & 0.41 \\
+        \hline
+        Prosjek & - & - & 0.41 & 0.43 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+Možemo vidjeti da je najbolji iznos mjere podudaranja stila postignut za stil \textit{Accordion} uz vrijednost hiperparametra \textit{scale} iznosa 4.5 odnosno vrijednost hiperparametra \textit{strength} iznosa 0.6. S druge strane, najbolji iznos mjere očuvanja sadržaja postignut je za stil \textit{Chime} uz vrijednost hiperparametra \textit{scale} iznosa 3.5 odnosno vrijednost hiperparametra \textit{strength} iznosa 0.45. Vidimo da je u pitanju kompromis: povećanje očuvanja sadržaja općenito smanjuje podudaranje stila.
