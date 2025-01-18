@@ -55,14 +55,14 @@ Suradnju svih dosad opisanih dijelova arhitekture najbolje vidimo u procesu uče
     \label{fig:arhitektura_train}
 \end{figure}
 
-Zadani mel-spektrogram stila prolazi kroz koder varijacijskog autoenkodera i postaje latentni vektor $z_0$. Zatim prolazi kroz difuzijski proces (\ref{eq:difusion}) od $T$ koraka i postaje zašumljeni latentni vektor $z_T$. Broj $T$  nasumično uzorkujemo u svakom koraku učenja.
+Zadani mel-spektrogram stila prolazi kroz koder varijacijskog autoenkodera i prebacuje se u latentni vektor $z_0$. Zatim prolazi kroz difuzijski proces (\ref{eq:difusion}) od $T$ koraka i postaje zašumljeni latentni vektor $z_T$. Broj $T$  nasumično uzorkujemo u svakom koraku učenja.
 \begin{equation}
     z_t = \sqrt{1 - \beta_t^2} \cdot z_{t-1} + \beta_t \cdot \epsilon_t
     \label{eq:difusion}
 \end{equation}
 Gdje je $0 < \beta_n^2 < 1$ i $\epsilon \sim N(0, 1)$.
 
-Zašumljeni latentni vektor $z_T$ ulazi u model UNet koji sadrži slojeve unakrsne pažnje. Cilj je rekonstruirati vektor $\hat{z}_{T-1}$ iz vektora $z_T$ uklanjanjem šuma. Za predviđanje šuma u trenutku $T$, UNet osim zašumljenog latentnog vektora $z_T$ koristi i izlaz ranije opisanog modula TVE, koji na ulazu prima vremenski korak $T$ i ugrađivanje znaka "*" (dobivenom koristeći CLIP-ov tekstualni koder). 
+Zašumljeni latentni vektor $z_T$ koristi se kao ulaz za model UNet koji sadrži slojeve unakrsne pažnje. Cilj je rekonstruirati vektor $\hat{z}_{T-1}$ iz vektora $z_T$ uklanjanjem šuma. Za predviđanje šuma u trenutku $T$, UNet osim zašumljenog latentnog vektora $z_T$ koristi i izlaz ranije opisanog modula TVE, koji na ulazu prima vremenski korak $T$ i ugrađivanje znaka "*" (dobivenom koristeći CLIP-ov tekstualni koder). 
   
 Ovime je opisan jedan korak obrnute difuzije tj. uklanjanja šuma. Postupak se ponavlja za svaki korak $t$ sve dok ne dođemo do koraka $t = 0$ i latentnog prikaza $\hat{z}_0$:
 
@@ -72,7 +72,7 @@ Ovime je opisan jedan korak obrnute difuzije tj. uklanjanja šuma. Postupak se p
 
 Pritom $e_\theta(y, t)$ označava izlaz modula TVE za zadano tekstualno ugrađivanje $y$ i korak $t$. Ovo ugrađivanje zovemo ugrađivanje stila za korak $t$.
 
-Gubitak (\ref{eq:loss}) je definiran kao kvadrat L2 norme razlika stvarnog slučajnog šuma $\epsilon$ i šuma predviđenog modelom UNet $\epsilon_\phi$. 
+Gubitak (\ref{eq:loss}) je definiran kao kvadrat L2 norme razlike stvarnog slučajnog šuma $\epsilon$ i šuma predviđenog modelom UNet $\epsilon_\phi$. 
 
 \begin{equation}
     \mathcal{L} = \| \epsilon_t - \epsilon_\phi(z_t, t, e_\theta(y, t)) \|_2^2 ,
