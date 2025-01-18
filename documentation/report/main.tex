@@ -1,0 +1,88 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage[caption=false]{subfig}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage[utf8]{inputenx}
+\usepackage[croatian]{babel}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+		T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Prenošenje stila glazbe korištenjem difuzijskih modela}
+
+
+\author{\IEEEauthorblockN{1\textsuperscript{st} Fran Vučković}
+		\IEEEauthorblockA{\textit{FER}}
+		\and
+		\IEEEauthorblockN{2\textsuperscript{nd} Filip Pankretić}
+		\IEEEauthorblockA{\textit{FER}}
+		\and
+		\IEEEauthorblockN{3\textsuperscript{rd} Dominik Jambrović}
+		\IEEEauthorblockA{\textit{FER}}
+		\and
+		\IEEEauthorblockN{4\textsuperscript{th} Velimir Kovačić}
+		\IEEEauthorblockA{\textit{FER}}
+		\and
+		\IEEEauthorblockN{5\textsuperscript{th} Filip Perković}
+		\IEEEauthorblockA{\textit{FER}}
+		\and
+		\IEEEauthorblockN{6\textsuperscript{th} Luka Glavinić}
+		\IEEEauthorblockA{\textit{FER}}}
+	
+
+\maketitle
+
+%\begin{abstract}
+%Sažetak upisati ovdje
+%\end{abstract}
+
+%\begin{IEEEkeywords}
+%kljucne, rijeci, upisati, ovdje
+%\end{IEEEkeywords}
+
+\section{Uvod}
+% 1. Uvod/Motivacija
+\input{uvod}
+
+\section{Pregled postojećih pristupa}
+% 2. Pregled postojećih pristupa
+\input{ppp}
+
+\section{Opis skupa podataka}
+% 3. Skup podataka
+\input{opisskupa}
+
+\section{Arhitektura}
+\input{arhitektura}
+
+
+\section{Mjere dobrote}
+% 5. Opis metrika
+\input{metrike}
+
+\section{Eksperimentalni rezultati}
+% 6. Experimentalni rezultati i metrike
+\input{rezultati}
+
+\section{Usporedba s postojećim pristupima}
+% 7. Usporedba s postojećim pristupima
+\input{usporedba}
+
+\section{Zaključak}
+% 7. Zaključak
+\input{zakljucak}
+
+	\bibliography{literatura}
+	\bibliographystyle{ieeetr}
+        \nocite{*}
+\end{document}

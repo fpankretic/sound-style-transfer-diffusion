@@ -1,0 +1,34 @@
+Korištene su 2 mjere dobrote zasnovane na modelu CLAP: očuvanje sadržaja (engl. \textit{content preservation}) i podudaranje stila (engl. \textit{style fit}).
+
+CLAP (engl. \textit{Contrastive Language-Audio Pretraining}) je predtrenirani model strojnog učenja koji kodira zvuk i tekst u zajednički prostor ugrađivanja (semantički prostor). Sličniji parovi zvučnih i tekstualnih zapisa bit će blizu u ovom prostoru, dok će različiti biti udaljeni. 
+
+Mjera CLAP služi za evaluaciju usklađenosti između ugrađivanja zvučnih zapisa i tekstualnih opisa dobivenih modelom CLAP. Nadahnuta je mjerom CLIP (engl. \textit{Contrastive Language-Image Pretraining}) koja radi na vrlo sličan način, ali između slika i tekstualnih opisa. 
+
+\begin{equation}
+    \mathrm{CLAPscore}(x, y)  = ReLU\left(\frac{E(x)\cdot E(y)}{||E(x)||\cdot ||E(y)||}\right)
+\end{equation}
+
+Pritom $x$ i $y$ mogu predstavljati zvučni zapis ili tekst, dok $E(x)$ predstavlja ugrađivanje dobivenom modelom CLAP. Rezultat je u intervalu $[0, 1]$, gdje $1$ predstavlja savršenu usklađenost, a $0$ da nema usklađenosti.
+
+\subsection{Očuvanje sadržaja}
+Očuvanje sadržaja mjeri sličnost između ulaznog zvučnog zapisa $x_0$ (prije prijenosa stila) i generiranog zvučnog zapisa $\hat{x}_0$ (nakon prijenosa stila). Mjera $CP$ računa kosinusnu sličnost između ugrađivanja dvaju zvučnih zapisa dobivenih modelom CLAP.
+
+\begin{equation}
+    CP(x_0, \hat{x}_0) = \mathrm{CLAPscore}(x_0, \hat{x}_0)
+\end{equation}
+
+Iznos je ograničen na interval $[0,1]$. Što je vrijednost veća, to je sadržaj očuvaniji,
+
+
+\subsection{Podudaranje stila}
+Podudaranje stila mjeri koliko stil generiranog zvučnog zapisa $\hat{x}_0$ odgovara zadanom stilu $Y$. Originalna mjera SF računa kosinusnu sličnost između ugrađivanja generiranog zvučnog zapisa i tekstualnog opisa stila.
+
+U našem radu koristimo blago izmijenjenu varijantu mjere. $Y$ ne predstavlja tekstualni opis stila (jer isti nisu dostupni), već niz zvučnih zapisa zadanog stila. Pri izračunu kosinusne sličnosti tada koristimo prosjek ugrađivanja pojedinih zvučnih zapisa stila. 
+
+\begin{equation}
+    SF(\hat{x}_0, Y)  = ReLU\left(\frac{E(\hat{x}_0)\cdot \frac{1}{N}\sum_{i=1}^NE(y_i)}{||E(\hat{x}_0)||\cdot ||\frac{1}{N}\sum_{i=1}^NE(y_i)||}\right)
+\end{equation}
+
+Iznos je ograničen na interval $[0,1]$. Što je vrijednost veća, to se stil bolje podudara,
+
+
